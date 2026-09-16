@@ -36,8 +36,7 @@ const state = {
   
   googleAuth: {
     isSignedIn: false,
-    name: 'Mahi Patel',
-    email: 'mahipatel2959@gmail.com',
+    name: 'Google User',
     isAuthenticating: false
   },
 
@@ -71,7 +70,7 @@ function loadPersistentState() {
     if (savedGoogleAuth) {
       state.googleAuth = JSON.parse(savedGoogleAuth);
     } else if (!sessionStorage.getItem('vogue_dismissed_auth')) {
-      // Show Google sign in dialog on initial visit for mockup test
+      // Show Google sign in dialog on initial visit
       state.activeModal = 'google-signin';
     }
   } catch (e) {
@@ -497,9 +496,9 @@ function render() {
         </div>
         <div class="header-actions">
           ${state.googleAuth.isSignedIn ? `
-            <button class="header-user-btn" onclick="window.vogueApp.openModal('google-account')" title="Google Account: ${state.googleAuth.name}">
-              <span class="google-user-avatar">M</span>
-              <span class="google-user-name">${state.googleAuth.name.split(' ')[0]}</span>
+            <button class="header-user-btn" onclick="window.vogueApp.openModal('google-account')" title="Google Account">
+              <span class="google-user-avatar">G</span>
+              <span class="google-user-name">Account</span>
             </button>
           ` : `
             <button class="header-google-signin-pill" onclick="window.vogueApp.openGoogleSignIn()" title="Sign in with Google">
@@ -1690,22 +1689,12 @@ function renderModalContent() {
           <button class="close-btn" onclick="window.vogueApp.continueAsGuest()">✕</button>
         </div>
         
-        <div style="display:flex; flex-direction:column; gap:14px; text-align:center;">
-          <p style="font-size:12px; color:var(--text-secondary); line-height:1.5;">
-            Connect your Google account to sync your 3D wardrobe lookbooks, tailored fit silhouettes, and price alerts across devices.
+        <div style="display:flex; flex-direction:column; gap:16px; text-align:center; padding: 12px 0 6px;">
+          <p style="font-size:13px; color:var(--text-secondary); line-height:1.5;">
+            Sign in with Google to sync your saved lookbooks, personalized measurements, and price drop alerts across devices.
           </p>
 
-          <!-- Mockup Google Account Selector Card -->
-          <div class="google-account-card" onclick="window.vogueApp.signInWithGoogle()">
-            <div class="google-user-avatar large">M</div>
-            <div style="flex:1; text-align:left;">
-              <div style="font-size:13px; font-weight:700; color:var(--text-primary);">Mahi Patel</div>
-              <div style="font-size:11px; color:var(--text-muted);">mahipatel2959@gmail.com</div>
-            </div>
-            <span class="google-sync-badge">Mock Google Test</span>
-          </div>
-
-          <!-- Main Sign In Button Requested by User -->
+          <!-- Clean Sign In with Google Button -->
           <button class="google-btn-full" ${state.googleAuth.isAuthenticating ? 'disabled' : ''} 
                   onclick="window.vogueApp.signInWithGoogle()">
             <svg width="18" height="18" viewBox="0 0 24 24">
@@ -1714,11 +1703,11 @@ function renderModalContent() {
               <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
               <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
             </svg>
-            <span>${state.googleAuth.isAuthenticating ? 'Connecting to Google...' : 'Sign in as Google & Continue'}</span>
+            <span>${state.googleAuth.isAuthenticating ? 'Connecting...' : 'Sign in with Google'}</span>
           </button>
 
           <button class="google-guest-btn" onclick="window.vogueApp.continueAsGuest()">
-            Continue as Guest (Explore app)
+            Continue as Guest
           </button>
         </div>
       `;
@@ -1732,11 +1721,10 @@ function renderModalContent() {
         </div>
         <div style="display:flex; flex-direction:column; gap:14px; text-align:center;">
           <div style="display:flex; align-items:center; gap:12px; background:var(--surface-variant); padding:14px; border-radius:12px; text-align:left;">
-            <div class="google-user-avatar large">M</div>
+            <div class="google-user-avatar large">G</div>
             <div>
-              <div style="font-size:14px; font-weight:700; color:var(--text-primary);">${state.googleAuth.name}</div>
-              <div style="font-size:12px; color:var(--text-muted);">${state.googleAuth.email}</div>
-              <div style="font-size:11px; color:var(--sage-green); font-weight:600; margin-top:2px;">✓ Connected via Google Auth Mockup</div>
+              <div style="font-size:14px; font-weight:700; color:var(--text-primary);">Google Account</div>
+              <div style="font-size:11px; color:var(--sage-green); font-weight:600; margin-top:2px;">✓ Connected with Google</div>
             </div>
           </div>
 
@@ -1747,7 +1735,7 @@ function renderModalContent() {
           </div>
 
           <button class="google-signout-btn" onclick="window.vogueApp.signOutGoogle()">
-            Sign Out from Google
+            Sign Out
           </button>
         </div>
       `;
@@ -1804,7 +1792,7 @@ window.vogueApp = {
       saveState('vogue_google_auth', state.googleAuth);
       sessionStorage.setItem('vogue_dismissed_auth', 'true');
       closeModal();
-      showToast('✓ Signed in with Google as Mahi Patel');
+      showToast('✓ Signed in with Google');
       render();
     }, 600);
   },
