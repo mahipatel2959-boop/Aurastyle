@@ -1,0 +1,6 @@
+{
+  "name": "AuraStyle: AI Stylist & Shop",
+  "description": "AI-powered fashion stylist and smart shopping with virtual try-on, size & style fit advisor, outfit creator, price comparison, and VIP stylist subscriptions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
