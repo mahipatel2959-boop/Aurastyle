@@ -34,11 +34,18 @@ const state = {
     gender: 'FEMALE'
   },
   
+  googleAuth: {
+    isSignedIn: false,
+    name: 'Mahi Patel',
+    email: 'mahipatel2959@gmail.com',
+    isAuthenticating: false
+  },
+
   aiStylistResult: null,
   isAiGenerating: false,
   
   // Modals
-  activeModal: null, // 'fit-profile', 'price-alert', 'book-stylist', 'slot-picker', 'save-outfit', 'tier-upgrade'
+  activeModal: null, // 'fit-profile', 'price-alert', 'book-stylist', 'slot-picker', 'save-outfit', 'tier-upgrade', 'google-signin', 'google-account'
   modalContext: null
 };
 
@@ -59,6 +66,14 @@ function loadPersistentState() {
 
     const savedBookings = localStorage.getItem('vogue_bookings');
     if (savedBookings) state.stylistBookings = JSON.parse(savedBookings);
+
+    const savedGoogleAuth = localStorage.getItem('vogue_google_auth');
+    if (savedGoogleAuth) {
+      state.googleAuth = JSON.parse(savedGoogleAuth);
+    } else if (!sessionStorage.getItem('vogue_dismissed_auth')) {
+      // Show Google sign in dialog on initial visit for mockup test
+      state.activeModal = 'google-signin';
+    }
   } catch (e) {
     console.warn('Could not read from localStorage', e);
   }
@@ -174,7 +189,13 @@ function calculateTryOnAnalysis() {
       occasionScore: 0,
       stylistVerdict: 'Select garments in the mannequin slots above to run live virtual try-on analysis.',
       keyStrengths: [],
-      stylingSuggestions: ['Add a Top, Bottom, or Outerwear piece to begin styling.']
+      stylingSuggestions: ['Add a Top, Bottom, or Outerwear piece to begin styling.'],
+      verdict: 'Select garments in the mannequin slots above to run live virtual try-on analysis.',
+      strengths: [],
+      tips: ['Add a Top, Bottom, or Outerwear piece to begin styling.'],
+      silhouetteBalance: 0,
+      colorUndertone: 0,
+      occasionSynergy: 0
     };
   }
 
@@ -223,7 +244,13 @@ function calculateTryOnAnalysis() {
     occasionScore,
     stylistVerdict: verdict,
     keyStrengths: strengths,
-    stylingSuggestions: tips
+    stylingSuggestions: tips,
+    verdict: verdict,
+    strengths: strengths,
+    tips: tips,
+    silhouetteBalance: silhouetteScore,
+    colorUndertone: colorScore,
+    occasionSynergy: occasionScore
   };
 }
 
@@ -469,6 +496,22 @@ function render() {
           <p class="brand-subtitle">Smart Styling & Price Intelligence</p>
         </div>
         <div class="header-actions">
+          ${state.googleAuth.isSignedIn ? `
+            <button class="header-user-btn" onclick="window.vogueApp.openModal('google-account')" title="Google Account: ${state.googleAuth.name}">
+              <span class="google-user-avatar">M</span>
+              <span class="google-user-name">${state.googleAuth.name.split(' ')[0]}</span>
+            </button>
+          ` : `
+            <button class="header-google-signin-pill" onclick="window.vogueApp.openGoogleSignIn()" title="Sign in with Google">
+              <svg width="14" height="14" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+              </svg>
+              <span>Sign In</span>
+            </button>
+          `}
           <button class="header-icon-btn" onclick="window.vogueApp.openModal('fit-profile')" title="Fit Profile">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
@@ -738,20 +781,39 @@ function renderTryOnTab() {
   const totalOriginal = activeItems.reduce((acc, i) => acc + i.originalPrice, 0);
   const totalSavings = Math.max(0, totalOriginal - totalCost);
 
+  const mannequinImg = (tryOn.gender === 'MALE') 
+    ? '/images/img_avatar_male_1787220800239.jpg' 
+    : '/images/img_avatar_female_1787220782196.jpg';
+
+  const strengthsList = analysis.strengths || analysis.keyStrengths || [];
+  const tipsList = analysis.tips || analysis.stylingSuggestions || [];
+  const verdictText = analysis.verdict || analysis.stylistVerdict || 'Add garments to the 3D mannequin to analyze silhouette harmony.';
+  const silhouetteScore = analysis.silhouetteBalance || analysis.silhouetteBalanceScore || 92;
+  const undertoneScore = analysis.colorUndertone || analysis.colorHarmonyScore || 94;
+  const occasionScore = analysis.occasionSynergy || analysis.occasionScore || 90;
+
   return `
     <div style="padding: 16px 20px 8px; display:flex; justify-content:space-between; align-items:center;">
       <div>
         <h2 style="font-size:18px; font-weight:700; color:var(--text-primary); letter-spacing:0.5px;">VIRTUAL TRY-ON STUDIO</h2>
         <p style="font-size:11px; color:var(--text-muted);">Real-Time 3D Silhouette & Flattery Engine</p>
       </div>
-      <span style="background:var(--primary-light); color:var(--primary); font-size:10px; font-weight:700; padding:4px 8px; border-radius:6px;">
+      <span style="background:rgba(164,137,250,0.18); color:var(--primary-glow); font-size:10px; font-weight:700; padding:4px 8px; border-radius:6px; border:1px solid rgba(164,137,250,0.3);">
         AI Drape Active
       </span>
     </div>
 
     <!-- Model Mannequin Settings -->
     <div class="settings-card">
-      <div style="font-size:12px; font-weight:700; margin-bottom:6px;">Model Silhouette & Undertone</div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div style="font-size:12px; font-weight:700;">Model Silhouette & Undertone</div>
+        <div class="gender-toggle-row" style="margin-bottom:0;">
+          <button class="gender-btn ${tryOn.gender !== 'MALE' ? 'active' : ''}" 
+                  onclick="window.vogueApp.updateTryOnAvatar(null, null, 'FEMALE')">Female</button>
+          <button class="gender-btn ${tryOn.gender === 'MALE' ? 'active' : ''}" 
+                  onclick="window.vogueApp.updateTryOnAvatar(null, null, 'MALE')">Male</button>
+        </div>
+      </div>
       <div class="chips-scroll" style="padding:0; margin-bottom:8px;">
         ${BODY_TYPES.map(b => `
           <button class="chip ${tryOn.bodyType === b.id ? 'active' : ''}" 
@@ -777,25 +839,45 @@ function renderTryOnTab() {
     <!-- Dark Luxury Studio Card -->
     <div class="dark-studio-card">
       <div class="mannequin-viewport">
+        <!-- 3D Angle Switcher -->
+        <div class="tryon-angle-controls">
+          <button class="angle-btn active">Front 3D</button>
+          <button class="angle-btn">45° Angle</button>
+          <button class="angle-btn">Back Fit</button>
+        </div>
+
         <!-- Overlay Mannequin Graphic -->
-        <img src="https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&auto=format&fit=crop&q=80" 
+        <img src="${mannequinImg}" 
+             onerror="this.src='https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?w=600&auto=format&fit=crop&q=80'"
              alt="3D Mannequin" class="mannequin-silhouette">
         
+        <!-- Live Harmony Score Pill -->
         <div class="harmony-pill">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
             <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
           </svg>
-          ${analysis.harmonyScore}% Harmony
+          ${analysis.harmonyScore || 94}% Harmony
+        </div>
+
+        <!-- Visual Draped Garment Tags -->
+        <div class="draped-tags-container">
+          ${activeItems.map(item => `
+            <span class="draped-item-tag">
+              ${item.category === CATEGORIES.OUTERWEAR ? '🧥' : item.category === CATEGORIES.TOPS ? '👕' : item.category === CATEGORIES.BOTTOMS ? '👖' : item.category === CATEGORIES.SHOES ? '👠' : '👜'}
+              ${item.name.split(' ').slice(0, 3).join(' ')}
+            </span>
+          `).join('')}
         </div>
 
         <div class="viewport-footer">
           <span>${activeItems.length} Pieces Layered</span>
-          <span style="color:var(--sage-light); font-weight:700;">Total: $${Math.round(totalCost)} (Save $${Math.round(totalSavings)})</span>
+          <span style="color:var(--sage-green); font-weight:700;">Total: $${Math.round(totalCost)} (Save $${Math.round(totalSavings)})</span>
         </div>
       </div>
 
-      <div style="margin-top:14px; font-size:12px; font-weight:700; color:white;">
-        Garment Layer Slots (Tap to Swap)
+      <div style="margin-top:14px; font-size:12px; font-weight:700; color:white; display:flex; justify-content:space-between; align-items:center;">
+        <span>Garment Layer Slots (Tap to Swap)</span>
+        <span style="font-size:11px; color:var(--text-muted); font-weight:normal;">Tap ✕ to remove</span>
       </div>
 
       <!-- 5 Slot Cards -->
@@ -808,11 +890,11 @@ function renderTryOnTab() {
       </div>
 
       <div style="display:flex; gap:10px; margin-top:16px;">
-        <button style="flex:1; background:transparent; border:1px solid var(--gold-accent); color:var(--gold-accent); padding:10px; border-radius:8px; font-weight:600; cursor:pointer;" 
+        <button style="flex:1; background:transparent; border:1px solid var(--primary-glow); color:var(--primary-glow); padding:10px; border-radius:8px; font-weight:600; cursor:pointer;" 
                 onclick="window.vogueApp.openModal('save-outfit')">
           Save Lookbook
         </button>
-        <button style="flex:1.4; background:var(--gold-accent); border:none; color:var(--noir-dark); padding:10px; border-radius:8px; font-weight:700; cursor:pointer;" 
+        <button style="flex:1.4; background:linear-gradient(135deg, #7C4DFF, #6750A4); border:none; color:white; padding:10px; border-radius:8px; font-weight:700; cursor:pointer; box-shadow:0 4px 12px rgba(124,77,255,0.3);" 
                 onclick="window.vogueApp.addAllTryOnToCart()">
           Add All to Cart ($${Math.round(totalCost)})
         </button>
@@ -830,31 +912,31 @@ function renderTryOnTab() {
         AI Fit & Styling Critique
       </div>
       <div class="critique-body">
-        ${analysis.verdict}
+        ${verdictText}
       </div>
       <div class="critique-scores">
         <div class="score-pill">
           <div class="score-label">Silhouette</div>
-          <div class="score-val">${analysis.silhouetteBalance}%</div>
+          <div class="score-val">${silhouetteScore}%</div>
         </div>
         <div class="score-pill">
           <div class="score-label">Undertone</div>
-          <div class="score-val">${analysis.colorUndertone}%</div>
+          <div class="score-val">${undertoneScore}%</div>
         </div>
         <div class="score-pill">
           <div class="score-label">Occasion</div>
-          <div class="score-val">${analysis.occasionSynergy}%</div>
+          <div class="score-val">${occasionScore}%</div>
         </div>
       </div>
       
-      <div style="font-size:11px; font-weight:700; color:var(--primary); margin-top:10px;">Key Styling Strengths:</div>
-      ${analysis.strengths.map(s => `
-        <div style="font-size:12px; margin:2px 0;">• ${s}</div>
+      <div style="font-size:11px; font-weight:700; color:var(--primary-glow); margin-top:10px;">Key Styling Strengths:</div>
+      ${strengthsList.map(s => `
+        <div style="font-size:12px; margin:3px 0; color:var(--text-secondary);">• ${s}</div>
       `).join('')}
 
       <div style="font-size:11px; font-weight:700; color:var(--text-muted); margin-top:8px;">Atelier Tips:</div>
-      ${analysis.tips.map(t => `
-        <div style="font-size:12px; margin:2px 0; color:var(--text-secondary);">→ ${t}</div>
+      ${tipsList.map(t => `
+        <div style="font-size:12px; margin:3px 0; color:var(--text-secondary);">→ ${t}</div>
       `).join('')}
     </div>
   `;
@@ -864,25 +946,25 @@ function renderSlotCard(slotName, item, category) {
   if (!item) {
     return `
       <div class="slot-card" onclick="window.vogueApp.openModal('slot-picker', '${category}')">
-        <span class="slot-title">${slotName}</span>
-        <div class="slot-empty-icon">＋</div>
-        <span style="font-size:9px; color:rgba(255,255,255,0.4);">Add</span>
+        <span class="slot-label">${slotName}</span>
+        <div style="font-size:18px; color:var(--primary-glow); margin: 6px 0;">＋</div>
+        <span style="font-size:9px; color:var(--text-muted);">Add</span>
       </div>
     `;
   }
 
   return `
-    <div class="slot-card active" onclick="window.vogueApp.openModal('slot-picker', '${category}')">
-      <span class="slot-title">${slotName}</span>
+    <div class="slot-card filled" onclick="window.vogueApp.openModal('slot-picker', '${category}')">
+      <span class="slot-label">${slotName}</span>
       <img src="${item.imageUrl}" alt="${item.name}" class="slot-thumb">
       <span class="slot-price">$${Math.round(item.lowestPrice)}</span>
-      <button style="position:absolute; top:2px; right:2px; background:none; border:none; color:white; font-size:10px; cursor:pointer;" 
+      <button style="position:absolute; top:2px; right:2px; background:rgba(0,0,0,0.6); border:none; color:white; font-size:10px; border-radius:50%; width:16px; height:16px; display:flex; align-items:center; justify-content:center; cursor:pointer;" 
               onclick="event.stopPropagation(); window.vogueApp.removeTryOnSlot('${category}')">✕</button>
     </div>
   `;
 }
 
-// 3. AI STYLIST TAB
+// 3. AI STYLIST TAB (Direct Android Parity with OutfitStudioScreen.kt)
 function renderAiStylistTab() {
   const currentSkin = SKIN_TONES.find(s => s.id === state.userProfile.skinToneName) || SKIN_TONES[2];
 
@@ -896,47 +978,76 @@ function renderAiStylistTab() {
 
   return `
     <div style="padding: 16px 20px 8px; display:flex; justify-content:space-between; align-items:center;">
-      <div>
-        <h2 style="font-size:18px; font-weight:700; color:var(--text-primary); letter-spacing:0.5px;">AI OUTFIT ARCHITECT</h2>
-        <p style="font-size:11px; color:var(--text-muted);">Generative Capsule & Occasion Styling Engine</p>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <div style="width:32px; height:32px; border-radius:8px; background:rgba(164,137,250,0.15); display:flex; align-items:center; justify-content:center; color:var(--primary-glow);">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+            <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
+          </svg>
+        </div>
+        <div>
+          <h2 style="font-size:17px; font-weight:800; color:var(--text-primary); letter-spacing:0.5px;">AI OUTFIT ARCHITECT</h2>
+          <p style="font-size:11px; color:var(--text-muted);">Generative Capsule & Occasion Styling Engine</p>
+        </div>
       </div>
-      <span style="background:var(--primary-light); color:var(--primary); font-size:10px; font-weight:700; padding:4px 8px; border-radius:6px;">
+      <span style="background:linear-gradient(135deg, rgba(124,77,255,0.2), rgba(103,80,164,0.3)); color:var(--primary-glow); font-size:10px; font-weight:700; padding:4px 8px; border-radius:6px; border:1px solid rgba(164,137,250,0.4);">
         Gemini Flash AI
       </span>
     </div>
 
     <!-- Seasonal Color Harmonizer Card -->
-    <div class="settings-card">
+    <div class="settings-card" style="border:1px solid rgba(164,137,250,0.3);">
       <div style="display:flex; justify-content:space-between; align-items:center;">
-        <div style="font-size:12px; font-weight:700;">Your Seasonal Color Harmonizer</div>
-        <button style="background:none; border:none; color:var(--primary); font-size:11px; cursor:pointer;" 
-                onclick="window.vogueApp.openModal('fit-profile')">Edit Tone</button>
+        <div style="display:flex; align-items:center; gap:6px; font-size:13px; font-weight:700; color:var(--text-primary);">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--primary-glow)" stroke-width="2">
+            <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"></circle>
+            <circle cx="17.5" cy="10.5" r=".5" fill="currentColor"></circle>
+            <circle cx="8.5" cy="7.5" r=".5" fill="currentColor"></circle>
+            <circle cx="6.5" cy="12.5" r=".5" fill="currentColor"></circle>
+            <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"></path>
+          </svg>
+          Your Seasonal Color Harmonizer
+        </div>
+        <button style="background:rgba(164,137,250,0.15); border:1px solid rgba(164,137,250,0.3); color:var(--primary-glow); font-size:11px; font-weight:600; padding:3px 8px; border-radius:6px; cursor:pointer;" 
+                onclick="window.vogueApp.openModal('fit-profile')">Change Tone</button>
       </div>
-      <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
-        Profile: ${currentSkin.name} (${currentSkin.undertone})
+      <div style="font-size:11px; color:var(--text-muted); margin-top:4px;">
+        Skin Profile: <b style="color:var(--text-secondary);">${currentSkin.name}</b> (${currentSkin.undertone})
       </div>
-      <div style="display:flex; gap:8px; margin-top:10px;">
+      <div style="font-size:10px; color:var(--text-muted); margin-top:8px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">Best Flattering Shades:</div>
+      <div style="display:flex; gap:8px; margin-top:6px; overflow-x:auto; padding-bottom:4px;">
         ${currentSkin.recommendedColors.map(c => `
-          <div style="flex:1; text-align:center;">
-            <div style="height:28px; border-radius:6px; background:${c.hex}; border:1px solid var(--border);"></div>
-            <div style="font-size:9px; color:var(--text-secondary); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.name}</div>
+          <div style="flex:1; min-width:65px; text-align:center; background:var(--surface-variant); padding:6px 4px; border-radius:8px; border:1px solid var(--border);">
+            <div style="height:22px; width:22px; margin:0 auto; border-radius:50%; background:${c.hex}; border:1.5px solid rgba(255,255,255,0.2);"></div>
+            <div style="font-size:9px; color:var(--text-secondary); font-weight:600; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${c.name}</div>
           </div>
         `).join('')}
       </div>
     </div>
 
-    <!-- AI Prompt Box -->
-    <div class="ai-prompt-box">
-      <div style="font-size:12px; font-weight:700; margin-bottom:8px;">Describe Your Styling Need</div>
-      <textarea id="ai-user-prompt" class="ai-prompt-input" 
-                placeholder="e.g., Cocktail party at an art museum in late November, sophisticated yet modern..."></textarea>
-      
-      <div style="font-size:11px; color:var(--text-muted); margin: 8px 0 4px;">Occasion Presets:</div>
-      <div class="chips-scroll" style="padding:0; margin-bottom:8px;">
+    <!-- Occasion Presets Horizontal Scroll Strip -->
+    <div style="padding: 6px 14px 2px;">
+      <div style="font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:0.5px;">
+        Occasion Presets (Tap to Style):
+      </div>
+      <div class="chips-scroll" style="padding:0; margin-bottom:4px;">
         ${presets.map(p => `
-          <button class="chip" onclick="document.getElementById('ai-user-prompt').value = '${p}'">${p}</button>
+          <button class="occasion-chip" onclick="document.getElementById('ai-user-prompt').value = '${p}'; window.vogueApp.generateAiEnsemble('${p}');">
+            ${p}
+          </button>
         `).join('')}
       </div>
+    </div>
+
+    <!-- AI Prompt Box (Android Parity) -->
+    <div class="ai-prompt-box">
+      <div style="font-size:13px; font-weight:700; margin-bottom:8px; color:var(--text-primary); display:flex; align-items:center; gap:6px;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--primary-glow)" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+        </svg>
+        Ask AuraStyle AI Haute Couture Advisor
+      </div>
+      <textarea id="ai-user-prompt" class="ai-prompt-input" 
+                placeholder="e.g., 'Style me for an outdoor spring rooftop dinner', 'What coat suits 165cm hourglass frame?'"></textarea>
 
       <button class="ai-generate-btn" ${state.isAiGenerating ? 'disabled' : ''} 
               onclick="window.vogueApp.generateAiEnsemble(document.getElementById('ai-user-prompt').value)">
@@ -951,32 +1062,77 @@ function renderAiStylistTab() {
             <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
             <line x1="16.24" y1="7.76" x2="19.07" y2="4.93"></line>
           </svg>
-          Consulting Haute Couture Engine...
+          <span>Designing Look...</span>
         ` : `
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
             <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
           </svg>
-          Generate Haute Couture Ensemble
+          <span>Generate Haute Couture Ensemble</span>
         `}
       </button>
     </div>
 
-    <!-- AI Output Box -->
+    <!-- AI Output Box (Android Bespoke Plan Card) -->
     ${state.aiStylistResult ? `
-      <div class="ai-result-card">
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-          <div style="font-size:12px; font-weight:700; color:var(--primary);">
-            ✨ Editorial Recommendation
+      <div class="bespoke-plan-card">
+        <div class="bespoke-plan-header">
+          <div class="bespoke-plan-title">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+              <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"></path>
+            </svg>
+            Bespoke AI Styling Plan
           </div>
-          <span style="font-size:10px; color:var(--text-muted);">${state.aiStylistResult.source}</span>
+          <button class="load-tryon-btn" onclick="window.vogueApp.switchTab('try-on')">
+            Load in 3D Try-On →
+          </button>
         </div>
         <div class="ai-result-content">${formatMarkdown(state.aiStylistResult.text)}</div>
-        <button style="margin-top:12px; width:100%; background:var(--primary-subtle); color:var(--primary); border:1px solid var(--primary-container); padding:8px; border-radius:6px; font-size:12px; font-weight:600; cursor:pointer;" 
-                onclick="window.vogueApp.switchTab('try-on')">
-          View in 3D Try-On Studio →
-        </button>
       </div>
     ` : ''}
+
+    <!-- Saved Wardrobe Lookbooks Gallery (Android Parity) -->
+    <div class="saved-lookbooks-section">
+      <div style="font-size:14px; font-weight:700; color:var(--text-primary); margin-bottom:4px;">
+        Saved Wardrobe Lookbooks (${state.savedOutfits.length})
+      </div>
+      
+      ${state.savedOutfits.length === 0 ? `
+        <div style="background:var(--surface); border:1px dashed var(--border); border-radius:var(--radius-lg); padding:24px 16px; text-align:center; margin-top:8px;">
+          <div style="font-size:28px; margin-bottom:8px;">👗</div>
+          <div style="font-size:13px; font-weight:700; color:var(--text-primary);">No saved outfits yet</div>
+          <div style="font-size:11px; color:var(--text-muted); margin-top:4px; max-width:280px; margin-left:auto; margin-right:auto;">
+            Craft ensembles in Virtual Try-On and tap 'Save Lookbook' to curate your wardrobe.
+          </div>
+        </div>
+      ` : `
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          ${state.savedOutfits.map(o => `
+            <div class="saved-look-card">
+              <div>
+                <div style="font-size:13px; font-weight:700; color:white;">${o.name}</div>
+                <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">
+                  ${o.itemCount || 3} Pieces • Saved ${o.date || 'Today'}
+                </div>
+                <div style="font-size:11px; color:var(--sage-green); font-weight:700; margin-top:4px;">
+                  Harmony Score: ${o.harmonyScore || 94}%
+                </div>
+              </div>
+              <div style="display:flex; gap:6px; align-items:center;">
+                <button style="background:rgba(164,137,250,0.15); border:1px solid rgba(164,137,250,0.4); color:var(--primary-glow); padding:6px 10px; border-radius:6px; font-size:11px; font-weight:600; cursor:pointer;" 
+                        onclick="window.vogueApp.switchTab('try-on')">
+                  View in 3D
+                </button>
+                <button style="background:none; border:none; color:var(--text-muted); font-size:16px; padding:4px 6px; cursor:pointer;" 
+                        title="Delete Outfit"
+                        onclick="window.vogueApp.deleteSavedOutfit('${o.id}')">
+                  ✕
+                </button>
+              </div>
+            </div>
+          `).join('')}
+        </div>
+      `}
+    </div>
   `;
 }
 
@@ -1519,6 +1675,84 @@ function renderModalContent() {
       `;
     }
 
+    case 'google-signin': {
+      return `
+        <div class="modal-header">
+          <div style="display:flex; align-items:center; gap:8px;">
+            <svg width="20" height="20" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+            </svg>
+            <div class="modal-title">Sign in with Google</div>
+          </div>
+          <button class="close-btn" onclick="window.vogueApp.continueAsGuest()">✕</button>
+        </div>
+        
+        <div style="display:flex; flex-direction:column; gap:14px; text-align:center;">
+          <p style="font-size:12px; color:var(--text-secondary); line-height:1.5;">
+            Connect your Google account to sync your 3D wardrobe lookbooks, tailored fit silhouettes, and price alerts across devices.
+          </p>
+
+          <!-- Mockup Google Account Selector Card -->
+          <div class="google-account-card" onclick="window.vogueApp.signInWithGoogle()">
+            <div class="google-user-avatar large">M</div>
+            <div style="flex:1; text-align:left;">
+              <div style="font-size:13px; font-weight:700; color:var(--text-primary);">Mahi Patel</div>
+              <div style="font-size:11px; color:var(--text-muted);">mahipatel2959@gmail.com</div>
+            </div>
+            <span class="google-sync-badge">Mock Google Test</span>
+          </div>
+
+          <!-- Main Sign In Button Requested by User -->
+          <button class="google-btn-full" ${state.googleAuth.isAuthenticating ? 'disabled' : ''} 
+                  onclick="window.vogueApp.signInWithGoogle()">
+            <svg width="18" height="18" viewBox="0 0 24 24">
+              <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+              <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+              <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+              <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+            </svg>
+            <span>${state.googleAuth.isAuthenticating ? 'Connecting to Google...' : 'Sign in as Google & Continue'}</span>
+          </button>
+
+          <button class="google-guest-btn" onclick="window.vogueApp.continueAsGuest()">
+            Continue as Guest (Explore app)
+          </button>
+        </div>
+      `;
+    }
+
+    case 'google-account': {
+      return `
+        <div class="modal-header">
+          <div class="modal-title">Google Account</div>
+          <button class="close-btn" onclick="window.vogueApp.closeModal()">✕</button>
+        </div>
+        <div style="display:flex; flex-direction:column; gap:14px; text-align:center;">
+          <div style="display:flex; align-items:center; gap:12px; background:var(--surface-variant); padding:14px; border-radius:12px; text-align:left;">
+            <div class="google-user-avatar large">M</div>
+            <div>
+              <div style="font-size:14px; font-weight:700; color:var(--text-primary);">${state.googleAuth.name}</div>
+              <div style="font-size:12px; color:var(--text-muted);">${state.googleAuth.email}</div>
+              <div style="font-size:11px; color:var(--sage-green); font-weight:600; margin-top:2px;">✓ Connected via Google Auth Mockup</div>
+            </div>
+          </div>
+
+          <div style="background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px; font-size:11px; color:var(--text-secondary); text-align:left;">
+            Synced Wardrobe Looks: <b>${state.savedOutfits.length} items</b><br>
+            Cart Saved Items: <b>${state.cartItems.length} items</b><br>
+            Price Drop Trackers: <b>${state.priceAlerts.length} items</b>
+          </div>
+
+          <button class="google-signout-btn" onclick="window.vogueApp.signOutGoogle()">
+            Sign Out from Google
+          </button>
+        </div>
+      `;
+    }
+
     default:
       return '';
   }
@@ -1548,13 +1782,49 @@ window.vogueApp = {
   sendToTryOn,
   removeTryOnSlot,
   saveCurrentOutfit,
+  deleteSavedOutfit: (id) => {
+    state.savedOutfits = state.savedOutfits.filter(o => o.id !== id);
+    saveState('vogue_saved_outfits', state.savedOutfits);
+    showToast('Lookbook removed from wardrobe');
+    render();
+  },
   addAllTryOnToCart,
   generateAiEnsemble,
   openModal,
   closeModal,
-  updateTryOnAvatar: (bodyType, skinTone) => {
+  openGoogleSignIn: () => {
+    openModal('google-signin');
+  },
+  signInWithGoogle: () => {
+    state.googleAuth.isAuthenticating = true;
+    render();
+    setTimeout(() => {
+      state.googleAuth.isAuthenticating = false;
+      state.googleAuth.isSignedIn = true;
+      saveState('vogue_google_auth', state.googleAuth);
+      sessionStorage.setItem('vogue_dismissed_auth', 'true');
+      closeModal();
+      showToast('✓ Signed in with Google as Mahi Patel');
+      render();
+    }, 600);
+  },
+  signOutGoogle: () => {
+    state.googleAuth.isSignedIn = false;
+    saveState('vogue_google_auth', state.googleAuth);
+    closeModal();
+    showToast('Signed out of Google account');
+    render();
+  },
+  continueAsGuest: () => {
+    sessionStorage.setItem('vogue_dismissed_auth', 'true');
+    closeModal();
+    showToast('Continuing as Guest');
+    render();
+  },
+  updateTryOnAvatar: (bodyType, skinTone, gender) => {
     if (bodyType) state.tryOnState.bodyType = bodyType;
     if (skinTone) state.tryOnState.skinTone = skinTone;
+    if (gender) state.tryOnState.gender = gender;
     render();
   },
   saveProfileForm: () => {
