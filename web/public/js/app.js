@@ -659,18 +659,29 @@ function renderShopTab() {
     <div class="trending-strip">
       <div class="trending-header">
         <div class="trending-title">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
-          </svg>
-          TRENDING PRICE DROPS (≥40% OFF)
+          <span class="fire-icon">🔥</span>
+          <span>Major Multi-Store Price Drops</span>
         </div>
-        <span style="font-size:11px;color:var(--text-muted);">${trending.length} items</span>
+        <span class="trending-discount-label">Up to 50% Off</span>
       </div>
       <div class="trending-cards">
         ${trending.map(t => `
           <div class="trending-mini-card" onclick="window.vogueApp.viewProduct('${t.id}')">
-            <span class="trending-discount-tag">-${t.priceDropPercent}%</span>
-            <img src="${t.imageUrl}" alt="${t.name}" class="trending-mini-img">
+            <div class="card-thumb-container">
+              <span class="badge-discount-tag">-${t.priceDropPercent}% OFF</span>
+              <span class="badge-stores-tag">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"></path><path d="M2 7h20"></path></svg>
+                ${t.storeOffers ? t.storeOffers.length : 4} Stores
+              </span>
+              <img src="${t.imageUrl}" alt="${t.name}" class="trending-mini-img">
+              <button class="try-on-overlay-btn" title="3D Try-On"
+                      onclick="event.stopPropagation(); window.vogueApp.sendToTryOn(PRODUCTS.find(x => x.id === '${t.id}'))">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                  <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"></path>
+                </svg>
+                <span>Try On</span>
+              </button>
+            </div>
             <div class="trending-mini-info">
               <div class="trending-brand">${t.brand}</div>
               <div class="trending-name">${t.name}</div>
@@ -689,13 +700,18 @@ function renderShopTab() {
       ${filtered.map(p => `
         <div class="product-card" onclick="window.vogueApp.viewProduct('${p.id}')">
           <div class="product-thumb-box">
-            <span class="deal-badge">-${p.priceDropPercent}%</span>
+            <span class="badge-discount-tag">-${p.priceDropPercent}% OFF</span>
+            <span class="badge-stores-tag">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"></path><path d="M2 7h20"></path></svg>
+              ${p.storeOffers ? p.storeOffers.length : 4} Stores
+            </span>
             <img src="${p.imageUrl}" alt="${p.name}" class="product-thumb">
-            <button class="try-on-quick-btn" title="Try-On in 3D" 
+            <button class="try-on-overlay-btn" title="3D Try-On" 
                     onclick="event.stopPropagation(); window.vogueApp.sendToTryOn(PRODUCTS.find(x => x.id === '${p.id}'))">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                 <path d="M20.38 3.46 16 2a4 4 0 0 1-8 0L3.62 3.46a2 2 0 0 0-1.34 2.23l.58 3.47a1 1 0 0 0 .99.84H6v10c0 1.1.9 2 2 2h8a2 2 0 0 0 2-2V10h2.15a1 1 0 0 0 .99-.84l.58-3.47a2 2 0 0 0-1.34-2.23z"></path>
               </svg>
+              <span>Try On</span>
             </button>
           </div>
           <div class="product-details">
